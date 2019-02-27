@@ -1,0 +1,5 @@
+#Archivos
+*.orig
+
+#Carpetas
+/nbproject/private/

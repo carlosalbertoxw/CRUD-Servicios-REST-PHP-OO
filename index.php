@@ -10,7 +10,7 @@ class Index {
     private $load;
 
     public function __construct() {
-        header('Content-Type: application/json');
+        header('Content-Type: application/json;charset=utf-8');
         $this->load = Load::get_instance();
         $this->load->router('controller');
     }

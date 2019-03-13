@@ -9,7 +9,7 @@ function write_log($cadena, $tipo) {
 class Connection {
 
     public function open_connection() {
-        $conn = new mysqli('localhost', 'root', 'qwerty', 'application');
+        $conn = new mysqli('localhost', 'root', 'qwerty', 'notes');
         if ($conn->connect_errno == 0) {
             $conn->set_charset('UTF8');
             //write_log('----conexión abierta----', 'info');
@@ -45,7 +45,7 @@ class Connection {
             $row = $conn->errno;
             write_log($conn->errno . ' - Error al ejecutar la query - ' . $conn->error . ' Query ' . $query, 'Error');
         } else {
-            $row = mysqli_fetch_array($result);
+            $row = mysqli_fetch_array($result,MYSQLI_ASSOC);
         }
         return $row;
     }
@@ -58,7 +58,7 @@ class Connection {
             $rows = $conn->errno;
             write_log($conn->errno . ' - Error al ejecutar la query - ' . $conn->error . ' Query ' . $query, 'Error');
         } else {
-            while ($rows[] = mysqli_fetch_array($result));
+            while ($rows[] = mysqli_fetch_array($result,MYSQLI_ASSOC));
             array_pop($rows);
         }
         return $rows;

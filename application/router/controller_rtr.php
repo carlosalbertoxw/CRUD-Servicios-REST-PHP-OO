@@ -12,9 +12,21 @@ class Controller_RTR {
                 $ctl = $this->load->controller('note');
                 $ctl->n_c_new();
             } else
+            if (filter_input(INPUT_GET, 'two') === 'notes' && $method === 'GET' && strlen(filter_input(INPUT_GET, 'three')) === 0) {
+                $ctl = $this->load->controller('note');
+                $ctl->n_c_list();
+            } else
             if (filter_input(INPUT_GET, 'two') === 'notes' && $method === 'GET' && strlen(filter_input(INPUT_GET, 'three')) > 0) {
                 $ctl = $this->load->controller('note');
                 $ctl->n_c_get();
+            } else
+            if (filter_input(INPUT_GET, 'two') === 'notes' && $method === 'PUT') {
+                $ctl = $this->load->controller('note');
+                $ctl->n_c_update();
+            } else
+            if (filter_input(INPUT_GET, 'two') === 'notes' && $method === 'DELETE') {
+                $ctl = $this->load->controller('note');
+                $ctl->n_c_delete();
             }
         }
     }

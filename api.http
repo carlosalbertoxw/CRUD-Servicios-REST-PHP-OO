@@ -1,0 +1,49 @@
+### Ejemplos de peticiones a la API de notas.
+### La API key de desarrollo sembrada es: local-dev.dev-secret
+### (Compatible con clientes REST tipo VS Code REST Client / JetBrains HTTP.)
+
+@baseUrl = http://localhost:8081
+@apiKey = local-dev.dev-secret
+
+### Health check (no requiere API key)
+GET {{baseUrl}}/health/ready
+
+### Listar notas (paginación keyset + búsqueda opcional)
+GET {{baseUrl}}/api/notes?pageSize=20
+X-Api-Key: {{apiKey}}
+
+### Buscar por texto completo
+GET {{baseUrl}}/api/notes?search=ejemplo
+X-Api-Key: {{apiKey}}
+
+### Siguiente página (usar nextAfterId de la respuesta anterior)
+GET {{baseUrl}}/api/notes?afterId=1&pageSize=1
+X-Api-Key: {{apiKey}}
+
+### Obtener una nota por id
+GET {{baseUrl}}/api/notes/1
+X-Api-Key: {{apiKey}}
+
+### Crear una nota
+POST {{baseUrl}}/api/notes
+X-Api-Key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "title": "Mi nueva nota",
+  "text": "Contenido de la nota."
+}
+
+### Actualizar una nota
+PUT {{baseUrl}}/api/notes/1
+X-Api-Key: {{apiKey}}
+Content-Type: application/json
+
+{
+  "title": "Título actualizado",
+  "text": "Contenido actualizado."
+}
+
+### Eliminar una nota
+DELETE {{baseUrl}}/api/notes/1
+X-Api-Key: {{apiKey}}

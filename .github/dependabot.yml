@@ -1,0 +1,20 @@
+version: 2
+updates:
+  # Dependencias de PHP (Composer).
+  - package-ecosystem: composer
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  # Imagen base del Dockerfile.
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: weekly
+
+  # Acciones usadas en los workflows de CI.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly

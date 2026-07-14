@@ -1,5 +1,9 @@
-#Archivos
+/vendor/
+/.env
+/.phpunit.result.cache
 *.orig
-
-#Carpetas
-/nbproject/private/
+*.log
+/application/db/dbl/*.txt
+/nbproject/
+.idea/
+.vscode/

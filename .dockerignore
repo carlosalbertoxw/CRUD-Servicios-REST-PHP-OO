@@ -1,0 +1,14 @@
+.git
+.gitignore
+.github
+vendor
+.env
+*.log
+tests
+phpunit.xml
+application/db/dbl/*.txt
+nbproject
+.idea
+.vscode
+README.md
+api.http

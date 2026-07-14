@@ -1,0 +1,172 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "API de Notas",
+    "version": "1.0.0",
+    "description": "Servicio REST para gestionar notas en PHP orientado a objetos. Autenticación por API key, aislamiento multi-tenant, paginación por keyset y búsqueda de texto completo."
+  },
+  "servers": [
+    { "url": "http://localhost:8081", "description": "Local (Docker)" }
+  ],
+  "security": [
+    { "ApiKey": [] }
+  ],
+  "paths": {
+    "/api/notes": {
+      "get": {
+        "summary": "Lista las notas del cliente autenticado.",
+        "description": "Paginación por keyset: enviar afterId = nextAfterId de la página anterior. Con search se filtra por texto completo sobre título y contenido.",
+        "parameters": [
+          { "name": "afterId", "in": "query", "schema": { "type": "integer", "minimum": 0, "default": 0 }, "description": "Cursor: id a partir del cual traer resultados." },
+          { "name": "pageSize", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }, "description": "Tamaño de página." },
+          { "name": "search", "in": "query", "schema": { "type": "string", "maxLength": 100 }, "description": "Texto a buscar (título y contenido)." }
+        ],
+        "responses": {
+          "200": { "description": "Página de notas.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PagedNoteSummary" } } } },
+          "400": { "$ref": "#/components/responses/ValidationProblem" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" }
+        }
+      },
+      "post": {
+        "summary": "Crea una nota.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NoteRequest" } } } },
+        "responses": {
+          "201": {
+            "description": "Nota creada.",
+            "headers": { "Location": { "schema": { "type": "string" }, "description": "Ruta de la nota creada." } },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Note" } } }
+          },
+          "400": { "$ref": "#/components/responses/ValidationProblem" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "413": { "description": "Cuerpo demasiado grande." },
+          "429": { "$ref": "#/components/responses/TooManyRequests" }
+        }
+      }
+    },
+    "/api/notes/{id}": {
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+      ],
+      "get": {
+        "summary": "Obtiene una nota por id.",
+        "responses": {
+          "200": { "description": "Nota.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Note" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "put": {
+        "summary": "Actualiza una nota existente.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NoteRequest" } } } },
+        "responses": {
+          "204": { "description": "Actualizada." },
+          "400": { "$ref": "#/components/responses/ValidationProblem" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "summary": "Elimina una nota.",
+        "responses": {
+          "204": { "description": "Eliminada." },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/health/live": {
+      "get": {
+        "summary": "Liveness: el proceso responde.",
+        "security": [],
+        "responses": { "200": { "description": "Vivo." } }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "summary": "Readiness: además comprueba la base de datos.",
+        "security": [],
+        "responses": {
+          "200": { "description": "Listo." },
+          "503": { "description": "Dependencia no disponible." }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ApiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Key",
+        "description": "API key con formato <key_id>.<secreto>."
+      }
+    },
+    "schemas": {
+      "Note": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "title": { "type": "string" },
+          "text": { "type": ["string", "null"] },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "NoteSummary": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "title": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "NoteRequest": {
+        "type": "object",
+        "required": ["title"],
+        "properties": {
+          "title": { "type": "string", "maxLength": 250 },
+          "text": { "type": ["string", "null"], "maxLength": 100000 }
+        }
+      },
+      "PagedNoteSummary": {
+        "type": "object",
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/NoteSummary" } },
+          "pageSize": { "type": "integer" },
+          "totalCount": { "type": "integer" },
+          "nextAfterId": { "type": ["integer", "null"] }
+        }
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "integer" },
+          "detail": { "type": "string" },
+          "errors": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } }
+        }
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Falta la API key o es inválida.",
+        "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/ProblemDetails" } } }
+      },
+      "NotFound": {
+        "description": "El recurso no existe.",
+        "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/ProblemDetails" } } }
+      },
+      "ValidationProblem": {
+        "description": "Error de validación.",
+        "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/ProblemDetails" } } }
+      },
+      "TooManyRequests": {
+        "description": "Se superó el límite de peticiones.",
+        "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/ProblemDetails" } } }
+      }
+    }
+  }
+}

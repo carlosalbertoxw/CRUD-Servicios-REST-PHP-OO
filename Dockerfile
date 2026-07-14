@@ -1,5 +1,5 @@
 # Imagen base con Apache + mod_php. Versión fijada para builds reproducibles.
-FROM php:8.3-apache
+FROM php:8.5-apache
 
 # Extensiones: pdo_mysql para la BD; APCu para el cache de API keys y el
 # rate limiting en memoria compartida entre peticiones del mismo worker.

@@ -75,8 +75,15 @@ final class App
     {
         // 0) En producción solo HTTPS (TLS terminado en el reverse proxy). Los
         //    health checks quedan exentos: los sondeos del orquestador van por HTTP.
+        //    La redirección solo apunta a un host de ALLOWED_HOSTS: el Host lo
+        //    envía el cliente y usarlo sin validar permitiría un open redirect.
         if ($this->config->isProduction() && !$this->isHealthCheck($request) && !$this->ipResolver->isHttps($request)) {
-            return Response::redirect('https://' . $this->host($request) . $request->path . $this->queryString($request));
+            $host = $this->allowedHost($request);
+            if ($host === null) {
+                return Response::problem(400, 'Host no permitido.', 'Usa HTTPS con un host válido.');
+            }
+
+            return Response::redirect('https://' . $host . $request->path . $this->queryString($request));
         }
 
         // 1) Límite de tamaño del cuerpo.
@@ -233,12 +240,22 @@ final class App
         return str_starts_with($request->path, '/health/');
     }
 
-    /** Host de la petición sin puerto (tras el proxy, el HTTPS va al puerto estándar). */
-    private function host(Request $request): string
+    /**
+     * Host configurado (ALLOWED_HOSTS, separados por coma) que coincide con el de
+     * la petición, sin puerto y sin distinguir mayúsculas; null si no está en la
+     * lista. Se devuelve el valor de la configuración, no el de la petición.
+     */
+    private function allowedHost(Request $request): ?string
     {
-        $host = (string) ($request->header('Host') ?? 'localhost');
+        $requested = strtolower((string) preg_replace('/:\d+$/', '', (string) $request->header('Host')));
+        foreach (explode(',', (string) $this->config->get('ALLOWED_HOSTS', '')) as $allowed) {
+            $allowed = trim($allowed);
+            if ($allowed !== '' && strtolower($allowed) === $requested) {
+                return $allowed;
+            }
+        }
 
-        return preg_replace('/:\d+$/', '', $host) ?? $host;
+        return null;
     }
 
     private function queryString(Request $request): string

@@ -20,6 +20,7 @@ final class ProductionModeTest extends IntegrationTestCase
         parent::setUp();
         self::setEnv('APP_ENV', 'production');
         self::setEnv('TRUSTED_PROXIES', self::PROXY);
+        self::setEnv('ALLOWED_HOSTS', 'otro.example.com, api.example.com');
         $this->app = new App(dirname(__DIR__));
     }
 
@@ -27,6 +28,7 @@ final class ProductionModeTest extends IntegrationTestCase
     {
         self::setEnv('APP_ENV', 'testing');
         self::setEnv('TRUSTED_PROXIES', '');
+        self::setEnv('ALLOWED_HOSTS', '');
         parent::tearDown();
     }
 
@@ -41,6 +43,22 @@ final class ProductionModeTest extends IntegrationTestCase
 
         self::assertSame(308, $response->status);
         self::assertSame('https://api.example.com/api/notes?pageSize=5', $response->headers['Location']);
+    }
+
+    public function testHostFueraDeLaListaRecibe400SinRedirigir(): void
+    {
+        $response = $this->app->handle(Request::create('GET', '/api/notes', [], ['Host' => 'evil.example']));
+
+        self::assertSame(400, $response->status);
+        self::assertArrayNotHasKey('Location', $response->headers);
+    }
+
+    public function testElHostDeLaRedireccionSaleDeLaConfiguracion(): void
+    {
+        $response = $this->app->handle(Request::create('GET', '/docs', [], ['Host' => 'API.Example.COM']));
+
+        self::assertSame(308, $response->status);
+        self::assertSame('https://api.example.com/docs', $response->headers['Location']);
     }
 
     public function testHealthChecksNoSeRedirigen(): void
@@ -69,7 +87,7 @@ final class ProductionModeTest extends IntegrationTestCase
             'GET',
             '/api/notes',
             [],
-            ['X-Forwarded-Proto' => 'https', 'X-Api-Key' => TestDatabase::KEY_A],
+            ['Host' => 'api.example.com', 'X-Forwarded-Proto' => 'https', 'X-Api-Key' => TestDatabase::KEY_A],
             '',
             '203.0.113.7',
         ));

@@ -194,6 +194,7 @@ en [`docker-compose.yml`](docker-compose.yml)):
 | `AUTH_KEY_CACHE_SECONDS`     | `60`          | TTL del cache de validación de keys.         |
 | `MAX_BODY_BYTES`             | `1048576`     | Tamaño máximo del cuerpo (1 MB). En la imagen Docker, Apache además corta en 1 MB (`LimitRequestBody` del [Dockerfile](Dockerfile)): para subir el límite cambia ambos. |
 | `TRUSTED_PROXIES`            | *(vacío)*     | IPs/CIDRs de proxies de confianza para `X-Forwarded-For` y `X-Forwarded-Proto`. |
+| `ALLOWED_HOSTS`              | *(vacío)*     | Hosts públicos de la API, separados por coma. En `production` la redirección a HTTPS solo apunta a uno de ellos; una petición HTTP con otro `Host` recibe `400` (evita un *open redirect*). Sin configurarlo, toda petición HTTP recibe `400`. |
 
 ## Estructura del proyecto
 
@@ -228,8 +229,9 @@ phpstan.neon       Configuración de PHPStan
 - Sirve detrás de un reverse proxy que termine TLS; declara los proxies en
   `TRUSTED_PROXIES` para que el rate limiting use la IP real del cliente y la
   redirección a HTTPS reconozca las peticiones que ya llegaron cifradas
-  (`X-Forwarded-Proto: https`). Los health checks no se redirigen ni consumen
-  cuota de rate limiting.
+  (`X-Forwarded-Proto: https`). Declara también `ALLOWED_HOSTS`: la redirección
+  solo apunta a esos hosts. Los health checks no se redirigen ni consumen cuota
+  de rate limiting.
 - Apache rechaza cuerpos mayores a 1 MB (`LimitRequestBody`) antes de llegar a
   PHP; la app aplica además `MAX_BODY_BYTES`.
 - Los errores no controlados se registran como una línea JSON en el log de

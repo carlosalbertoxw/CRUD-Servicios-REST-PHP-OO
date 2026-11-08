@@ -8,7 +8,7 @@ namespace App\Http;
  * Respuesta HTTP: código de estado, cabeceras y cuerpo.
  *
  * Ofrece atajos para JSON y para errores en formato Problem Details
- * (RFC 7807, application/problem+json), como hace el proyecto de referencia.
+ * (RFC 9457, application/problem+json), igual que los proyectos C# y Java.
  */
 final class Response
 {
@@ -17,8 +17,7 @@ final class Response
         public readonly int $status,
         public readonly array $headers,
         public readonly string $body,
-    ) {
-    }
+    ) {}
 
     /** @param array<string,string> $headers */
     public static function json(mixed $data, int $status = 200, array $headers = []): self
@@ -30,10 +29,15 @@ final class Response
         ], $headers), $body === false ? '{}' : $body);
     }
 
-    /** @param array<string,string> $headers */
-    public static function noContent(int $status = 204, array $headers = []): self
+    public static function noContent(): self
     {
-        return new self($status, $headers, '');
+        return new self(204, [], '');
+    }
+
+    /** Redirección permanente que conserva el método y el cuerpo (308). */
+    public static function redirect(string $location): self
+    {
+        return new self(308, ['Location' => $location], '');
     }
 
     /**

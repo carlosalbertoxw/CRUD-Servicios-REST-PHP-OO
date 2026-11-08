@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace App\Http;
 
 /**
- * Enrutador por método + ruta con parámetros ({id}). Distingue "no existe"
- * (404) de "existe pero con otro método" (405), devolviendo Allow.
+ * Enrutador por método + ruta con parámetros ({id}, o con restricción
+ * {id:\d+}). Distingue "no existe" (404) de "existe pero con otro método"
+ * (405), devolviendo Allow.
  */
 final class Router
 {
@@ -15,9 +16,14 @@ final class Router
 
     public function add(string $method, string $pattern, callable $handler, bool $requiresAuth = true): void
     {
-        // /api/notes/{id}  ->  #^/api/notes/(?P<id>[^/]+)$#
-        $regex = preg_replace('#\{(\w+)\}#', '(?P<$1>[^/]+)', $pattern);
-        $this->routes[] = new Route($method, '#^' . $regex . '$#', $handler, $requiresAuth);
+        // /api/notes/{id}      ->  #^/api/notes/(?P<id>[^/]+)$#
+        // /api/notes/{id:\d+}  ->  #^/api/notes/(?P<id>\d+)$#
+        $regex = preg_replace_callback(
+            '#\{(\w+)(?::([^}]+))?\}#',
+            static fn(array $m): string => sprintf('(?P<%s>%s)', $m[1], $m[2] ?? '[^/]+'),
+            $pattern,
+        );
+        $this->routes[] = new Route($method, $pattern, '#^' . $regex . '$#', $handler, $requiresAuth);
     }
 
     public function get(string $pattern, callable $handler, bool $requiresAuth = true): void
@@ -38,6 +44,12 @@ final class Router
     public function delete(string $pattern, callable $handler, bool $requiresAuth = true): void
     {
         $this->add('DELETE', $pattern, $handler, $requiresAuth);
+    }
+
+    /** @return list<Route> rutas registradas, en orden */
+    public function routes(): array
+    {
+        return $this->routes;
     }
 
     /**

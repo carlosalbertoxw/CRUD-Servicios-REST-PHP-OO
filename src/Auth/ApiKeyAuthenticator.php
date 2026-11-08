@@ -18,9 +18,7 @@ final class ApiKeyAuthenticator
     public const HEADER = 'X-Api-Key';
     public const SCHEME = 'ApiKey';
 
-    public function __construct(private readonly ApiKeyRepositoryInterface $apiKeys)
-    {
-    }
+    public function __construct(private readonly ApiKeyRepositoryInterface $apiKeys) {}
 
     /**
      * Autentica la petición.
@@ -53,7 +51,7 @@ final class ApiKeyAuthenticator
             // Ignorado a propósito.
         }
 
-        return AuthResult::success($apiKey->keyId, $apiKey->clientName);
+        return AuthResult::success($apiKey->keyId);
     }
 
     private function secretMatches(string $providedSecret, string $storedHash): bool

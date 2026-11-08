@@ -14,8 +14,7 @@ final class NoteSummary implements JsonSerializable
         public readonly string $title,
         public readonly string $createdAt,
         public readonly string $updatedAt,
-    ) {
-    }
+    ) {}
 
     /** @param array<string,mixed> $row */
     public static function fromRow(array $row): self

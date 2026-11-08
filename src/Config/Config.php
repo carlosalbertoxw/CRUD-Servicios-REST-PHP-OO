@@ -14,9 +14,10 @@ use Dotenv\Dotenv;
  */
 final class Config
 {
-    /** @var array<string,string> */
+    /** @var array<string,mixed> */
     private array $values;
 
+    /** @param array<string,mixed> $values */
     private function __construct(array $values)
     {
         $this->values = $values;
@@ -27,14 +28,14 @@ final class Config
         // safeLoad: no falla si no existe .env (caso Docker con environment:).
         Dotenv::createImmutable($basePath)->safeLoad();
 
-        return new self(array_merge($_ENV, $_SERVER));
+        return new self($_ENV);
     }
 
     public function get(string $key, ?string $default = null): ?string
     {
         $value = $this->values[$key] ?? getenv($key);
 
-        if ($value === false || $value === null || $value === '') {
+        if ($value === false || $value === '') {
             return $default;
         }
 

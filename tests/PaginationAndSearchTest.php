@@ -11,7 +11,6 @@ final class PaginationAndSearchTest extends IntegrationTestCase
         $page1 = $this->decode($this->sendAsA('GET', '/api/notes', null, ['pageSize' => '1']));
 
         self::assertCount(1, $page1['items']);
-        self::assertSame(2, $page1['totalCount']);
         self::assertNotNull($page1['nextAfterId']);
 
         $page2 = $this->decode($this->sendAsA('GET', '/api/notes', null, [
@@ -30,7 +29,7 @@ final class PaginationAndSearchTest extends IntegrationTestCase
 
         $result = $this->decode($this->sendAsA('GET', '/api/notes', null, ['search' => 'presupuesto']));
 
-        self::assertSame(1, $result['totalCount']);
+        self::assertCount(1, $result['items']);
         self::assertStringContainsString('Reunión', $result['items'][0]['title']);
     }
 
@@ -38,7 +37,6 @@ final class PaginationAndSearchTest extends IntegrationTestCase
     {
         $result = $this->decode($this->sendAsA('GET', '/api/notes', null, ['search' => 'zzzznoexiste']));
 
-        self::assertSame(0, $result['totalCount']);
         self::assertSame([], $result['items']);
     }
 }

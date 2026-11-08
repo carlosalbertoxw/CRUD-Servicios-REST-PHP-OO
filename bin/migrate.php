@@ -22,11 +22,11 @@ require dirname(__DIR__) . '/vendor/autoload.php';
 
 $basePath = dirname(__DIR__);
 $config = Config::load($basePath);
-$seed = in_array('--seed', $argv, true);
+$seed = in_array('--seed', $_SERVER['argv'] ?? [], true);
 
 $dsn = sprintf(
     'mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4',
-    $config->get('DB_HOST', 'notes-mysql'),
+    $config->get('DB_HOST', 'mysql'),
     $config->getInt('DB_PORT', 3306),
     $config->get('DB_NAME', 'notes'),
 );
@@ -40,7 +40,7 @@ $pdo->exec(
         filename   VARCHAR(255) NOT NULL,
         applied_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (filename)
-     ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4'
+     ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4',
 );
 
 $applied = $pdo->query('SELECT filename FROM php_schema_migrations')->fetchAll(PDO::FETCH_COLUMN);

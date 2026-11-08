@@ -17,15 +17,15 @@ use Throwable;
  */
 final class HealthController
 {
-    public function __construct(private readonly Database $database)
-    {
-    }
+    public function __construct(private readonly Database $database) {}
 
+    /** @param array<string,string> $params parámetros de la ruta */
     public function live(Request $request, array $params, ?string $ownerKeyId): Response
     {
         return Response::json(['status' => 'Healthy']);
     }
 
+    /** @param array<string,string> $params parámetros de la ruta */
     public function ready(Request $request, array $params, ?string $ownerKeyId): Response
     {
         try {

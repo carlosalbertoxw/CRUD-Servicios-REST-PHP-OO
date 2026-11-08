@@ -23,7 +23,11 @@ final class TestDatabase
 
     private static ?PDO $pdo = null;
 
-    /** Configuración de conexión tomada del entorno (con valores por defecto locales). */
+    /**
+     * Configuración de conexión tomada del entorno (con valores por defecto locales).
+     *
+     * @return array{host:string,port:int,name:string,user:string,password:string}
+     */
     public static function config(): array
     {
         return [
@@ -68,13 +72,13 @@ final class TestDatabase
 
         // Dos clientes: A (con notas de ejemplo) y B (vacío, para multi-tenant).
         $insertKey = $pdo->prepare(
-            'INSERT INTO api_keys (key_id, key_hash, client_name) VALUES (:id, UNHEX(:hash), :name)'
+            'INSERT INTO api_keys (key_id, key_hash, client_name) VALUES (:id, UNHEX(:hash), :name)',
         );
         $insertKey->execute(['id' => self::KEY_A_ID, 'hash' => hash('sha256', 'dev-secret'), 'name' => 'Cliente A']);
         $insertKey->execute(['id' => self::KEY_B_ID, 'hash' => hash('sha256', 'secret-b'), 'name' => 'Cliente B']);
 
         $insertNote = $pdo->prepare(
-            'INSERT INTO notes (owner_key_id, title, text) VALUES (:owner, :title, :text)'
+            'INSERT INTO notes (owner_key_id, title, text) VALUES (:owner, :title, :text)',
         );
         $insertNote->execute(['owner' => self::KEY_A_ID, 'title' => 'Nota de ejemplo 1', 'text' => 'Contenido uno.']);
         $insertNote->execute(['owner' => self::KEY_A_ID, 'title' => 'Nota de ejemplo 2', 'text' => 'Contenido dos.']);

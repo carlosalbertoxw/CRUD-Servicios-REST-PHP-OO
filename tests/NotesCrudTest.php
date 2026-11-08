@@ -10,7 +10,7 @@ final class NotesCrudTest extends IntegrationTestCase
     {
         $body = $this->decode($this->sendAsA('GET', '/api/notes'));
 
-        self::assertSame(2, $body['totalCount']);
+        self::assertArrayNotHasKey('totalCount', $body); // sin COUNT(*) por página
         self::assertCount(2, $body['items']);
         self::assertArrayHasKey('createdAt', $body['items'][0]);
         self::assertArrayNotHasKey('text', $body['items'][0]); // el resumen no trae contenido

@@ -25,9 +25,9 @@ use Throwable;
 
 /**
  * Contenedor y pipeline de la aplicación: construye las dependencias (perezosa
- * la conexión a BD), define las rutas y ejecuta la petición aplicando límite de
- * tamaño, rate limiting, autenticación, cabeceras de seguridad y manejo de
- * errores.
+ * la conexión a BD), define las rutas y ejecuta la petición aplicando HTTPS en
+ * producción, límite de tamaño, rate limiting, autenticación, cabeceras de
+ * seguridad y manejo de errores.
  */
 final class App
 {
@@ -53,6 +53,12 @@ final class App
         $this->handle(Request::fromGlobals())->send();
     }
 
+    /** @return list<\App\Http\Route> rutas registradas (p. ej. para contrastarlas con la spec OpenAPI) */
+    public function routes(): array
+    {
+        return $this->router->routes();
+    }
+
     /** Procesa una petición y devuelve la respuesta (punto de entrada para pruebas). */
     public function handle(Request $request): Response
     {
@@ -67,16 +73,24 @@ final class App
 
     private function dispatch(Request $request): Response
     {
+        // 0) En producción solo HTTPS (TLS terminado en el reverse proxy). Los
+        //    health checks quedan exentos: los sondeos del orquestador van por HTTP.
+        if ($this->config->isProduction() && !$this->isHealthCheck($request) && !$this->ipResolver->isHttps($request)) {
+            return Response::redirect('https://' . $this->host($request) . $request->path . $this->queryString($request));
+        }
+
         // 1) Límite de tamaño del cuerpo.
         $maxBody = $this->config->getInt('MAX_BODY_BYTES', 1_048_576);
         if (strlen($request->rawBody) > $maxBody) {
             return Response::problem(413, 'La petición es demasiado grande.');
         }
 
-        // 2) Rate limiting por IP real (ventana fija).
-        $clientIp = $this->ipResolver->resolve($request);
-        $rate = $this->rateLimiter()->check($clientIp);
-        if (!$rate->allowed) {
+        // 2) Rate limiting por IP real (ventana fija). Los health checks no
+        //    consumen cuota.
+        $rate = $this->isHealthCheck($request)
+            ? null
+            : $this->rateLimiter()->check($this->ipResolver->resolve($request));
+        if ($rate !== null && !$rate->allowed) {
             return Response::problem(
                 429,
                 'Demasiadas peticiones.',
@@ -128,19 +142,41 @@ final class App
     {
         $router = new Router();
 
-        $router->get('/api/notes', fn (Request $r, array $p, ?string $o) => $this->notesController()->list($r, $p, $o));
-        $router->get('/api/notes/{id}', fn (Request $r, array $p, ?string $o) => $this->notesController()->getById($r, $p, $o));
-        $router->post('/api/notes', fn (Request $r, array $p, ?string $o) => $this->notesController()->create($r, $p, $o));
-        $router->put('/api/notes/{id}', fn (Request $r, array $p, ?string $o) => $this->notesController()->update($r, $p, $o));
-        $router->delete('/api/notes/{id}', fn (Request $r, array $p, ?string $o) => $this->notesController()->delete($r, $p, $o));
+        // Los controladores se construyen solo cuando su ruta coincide (así la
+        // conexión a la BD es perezosa). $notes('list') devuelve el handler que
+        // llama a NotesController::list().
+        $notes = $this->handler(fn() => $this->notesController());
+        $health = $this->handler(fn() => $this->healthController());
+        $docs = $this->handler(fn() => $this->docsController());
 
-        $router->get('/health/live', fn (Request $r, array $p, ?string $o) => $this->healthController()->live($r, $p, $o), requiresAuth: false);
-        $router->get('/health/ready', fn (Request $r, array $p, ?string $o) => $this->healthController()->ready($r, $p, $o), requiresAuth: false);
+        $router->get('/api/notes', $notes('list'));
+        $router->get('/api/notes/{id:\d+}', $notes('getById'));
+        $router->post('/api/notes', $notes('create'));
+        $router->put('/api/notes/{id:\d+}', $notes('update'));
+        $router->delete('/api/notes/{id:\d+}', $notes('delete'));
 
-        $router->get('/openapi.json', fn (Request $r, array $p, ?string $o) => $this->docsController()->spec($r, $p, $o), requiresAuth: false);
-        $router->get('/docs', fn (Request $r, array $p, ?string $o) => $this->docsController()->ui($r, $p, $o), requiresAuth: false);
+        $router->get('/health/live', $health('live'), requiresAuth: false);
+        $router->get('/health/ready', $health('ready'), requiresAuth: false);
+
+        $router->get('/openapi.json', $docs('spec'), requiresAuth: false);
+        $router->get('/docs', $docs('ui'), requiresAuth: false);
 
         return $router;
+    }
+
+    /**
+     * Fábrica de handlers para un controlador: devuelve una función que, dado el
+     * nombre de un método, produce el callable que el router invoca.
+     *
+     * @param callable(): object $controllerFactory
+     *
+     * @return callable(string): (callable(Request, array<string,string>, ?string): Response)
+     */
+    private function handler(callable $controllerFactory): callable
+    {
+        return static fn(string $method): callable
+            => static fn(Request $request, array $params, ?string $ownerKeyId): Response
+                => $controllerFactory()->{$method}($request, $params, $ownerKeyId);
     }
 
     private function notesController(): NotesController
@@ -178,17 +214,36 @@ final class App
         );
     }
 
-    /** En producción se añaden cabeceras de seguridad (HSTS) a toda respuesta. */
+    /**
+     * Cabeceras de seguridad: nosniff siempre (la API solo responde JSON/HTML
+     * propio); HSTS solo en producción, donde se sirve por HTTPS.
+     */
     private function withSecurityHeaders(Response $response): Response
     {
-        if (!$this->config->isProduction()) {
-            return $response;
+        $headers = ['X-Content-Type-Options' => 'nosniff'];
+        if ($this->config->isProduction()) {
+            $headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains';
         }
 
-        return $response->withHeaders([
-            'Strict-Transport-Security' => 'max-age=31536000; includeSubDomains',
-            'X-Content-Type-Options' => 'nosniff',
-        ]);
+        return $response->withHeaders($headers);
+    }
+
+    private function isHealthCheck(Request $request): bool
+    {
+        return str_starts_with($request->path, '/health/');
+    }
+
+    /** Host de la petición sin puerto (tras el proxy, el HTTPS va al puerto estándar). */
+    private function host(Request $request): string
+    {
+        $host = (string) ($request->header('Host') ?? 'localhost');
+
+        return preg_replace('/:\d+$/', '', $host) ?? $host;
+    }
+
+    private function queryString(Request $request): string
+    {
+        return $request->query === [] ? '' : '?' . http_build_query($request->query);
     }
 
     private function configureErrorDisplay(): void
@@ -199,7 +254,17 @@ final class App
 
     private function handleUnexpected(Throwable $e): Response
     {
-        error_log(sprintf('[notes-api] %s: %s in %s:%d', $e::class, $e->getMessage(), $e->getFile(), $e->getLine()));
+        // Una línea JSON por error (stderr del contenedor): fácil de indexar en
+        // una plataforma de logs.
+        error_log((string) json_encode([
+            'timestamp' => gmdate('Y-m-d\TH:i:s\Z'),
+            'level' => 'error',
+            'service' => 'notes-api',
+            'exception' => $e::class,
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
         // Nunca se filtran detalles internos al cliente en producción.
         $detail = $this->config->isProduction() ? null : $e->getMessage();

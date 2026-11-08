@@ -16,8 +16,7 @@ final class RateLimiter
         private readonly Cache $cache,
         private readonly int $permitLimit,
         private readonly int $windowSeconds,
-    ) {
-    }
+    ) {}
 
     public function check(string $clientIp): RateLimitResult
     {

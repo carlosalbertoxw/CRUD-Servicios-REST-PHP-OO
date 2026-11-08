@@ -1,9 +1,8 @@
 /vendor/
 /.env
-/.phpunit.result.cache
+/.phpunit.cache/
+/.php-cs-fixer.cache
 *.orig
 *.log
-/application/db/dbl/*.txt
-/nbproject/
 .idea/
 .vscode/

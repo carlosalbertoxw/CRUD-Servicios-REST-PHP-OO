@@ -18,9 +18,7 @@ final class NullCache implements Cache
         return null;
     }
 
-    public function store(string $key, mixed $value, int $ttlSeconds): void
-    {
-    }
+    public function store(string $key, mixed $value, int $ttlSeconds): void {}
 
     public function increment(string $key, int $ttlSeconds): int
     {

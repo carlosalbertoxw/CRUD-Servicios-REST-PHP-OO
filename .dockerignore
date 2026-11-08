@@ -6,9 +6,11 @@ vendor
 *.log
 tests
 phpunit.xml
-application/db/dbl/*.txt
-nbproject
+phpstan.neon
+.php-cs-fixer.dist.php
+.phpunit.cache
 .idea
 .vscode
 README.md
 api.http
+docker-compose.yml

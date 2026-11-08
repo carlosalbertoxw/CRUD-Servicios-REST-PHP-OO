@@ -18,8 +18,7 @@ final class CachedApiKeyRepository implements ApiKeyRepositoryInterface
         private readonly ApiKeyRepositoryInterface $inner,
         private readonly Cache $cache,
         private readonly int $ttlSeconds,
-    ) {
-    }
+    ) {}
 
     public function getActiveKey(string $keyId): ?ApiKey
     {

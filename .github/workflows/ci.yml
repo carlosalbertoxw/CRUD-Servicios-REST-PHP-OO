@@ -5,10 +5,57 @@ on:
     branches: [master, main]
   pull_request:
 
+# El token de GitHub solo necesita leer el código.
+permissions:
+  contents: read
+
+# Un push nuevo sobre la misma rama deja obsoleto al run anterior; en master no
+# se cancela para que cada commit integrado conserve su resultado.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
 jobs:
-  test:
-    name: Lint y pruebas
+  # Formato, análisis estático y auditoría: no dependen de la versión de PHP,
+  # basta con correrlos una vez.
+  calidad:
+    name: Formato, análisis estático y auditoría
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Configurar PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          coverage: none
+
+      - name: Validar composer.json
+        run: composer validate --strict
+
+      - name: Instalar dependencias
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Auditar dependencias vulnerables
+        run: composer audit
+
+      - name: Verificar formato (PHP-CS-Fixer)
+        run: composer cs
+
+      - name: Análisis estático (PHPStan)
+        run: composer analyse -- --no-progress
+
+  # Pruebas de integración contra MySQL real en todas las versiones soportadas
+  # (composer.json exige >= 8.3; la imagen Docker usa 8.5).
+  pruebas:
+    name: Pruebas (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ["8.3", "8.4", "8.5"]
 
     services:
       mysql:
@@ -37,19 +84,13 @@ jobs:
       - name: Configurar PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: ${{ matrix.php }}
           extensions: pdo_mysql, apcu
           ini-values: apc.enable_cli=1
           coverage: none
 
-      - name: Validar composer.json
-        run: composer validate --strict
-
       - name: Instalar dependencias
-        run: composer install --no-interaction --prefer-dist
-
-      - name: Lint de sintaxis (php -l)
-        run: find src bin public tests -name '*.php' -print0 | xargs -0 -n1 php -l
+        run: composer install --no-interaction --prefer-dist --no-progress
 
       - name: Pruebas (PHPUnit)
         run: vendor/bin/phpunit --colors=never
@@ -57,6 +98,7 @@ jobs:
   docker-build:
     name: Build de la imagen Docker
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - name: Construir imagen

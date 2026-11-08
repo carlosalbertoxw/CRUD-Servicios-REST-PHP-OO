@@ -10,7 +10,5 @@ final class ApiKey
     public function __construct(
         public readonly string $keyId,
         public readonly string $keyHash,
-        public readonly string $clientName,
-    ) {
-    }
+    ) {}
 }

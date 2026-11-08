@@ -1,54 +1,72 @@
 services:
+  mysql:
+    image: mysql:8.4
+    # Convención del proyecto: todas las fechas se guardan en UTC.
+    command: --default-time-zone=+00:00
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: notes
+      MYSQL_USER: notes_user          # usuario con DDL, reservado a migraciones y aprovisionamiento
+      MYSQL_PASSWORD: notes_password
+    # 3308 en el host para poder correr a la vez los proyectos C# (3306) y Java (3307).
+    ports:
+      - "3308:3306"
+    volumes:
+      - notes-mysql-data:/var/lib/mysql
+      - ./db/init-users.sql:/docker-entrypoint-initdb.d/init-users.sql:ro
+    healthcheck:
+      # TCP (127.0.0.1) y no socket: el socket responde también durante el
+      # servidor temporal de inicialización y daría "healthy" antes de tiempo.
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-proot_password"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
   # Aplica el esquema (y datos de ejemplo con --seed) y termina. Usa el usuario
-  # administrador (notes_user, con DDL) y reintenta mientras MySQL arranca.
+  # administrador (notes_user, con DDL).
   migrations:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: notes-php-migrations
     command: ["php", "bin/migrate.php", "--seed"]
     environment:
-      DB_HOST: notes-mysql
+      DB_HOST: mysql
       DB_PORT: "3306"
       DB_NAME: notes
       ADMIN_DB_USER: notes_user
       ADMIN_DB_PASSWORD: notes_password
-    networks:
-      - notes-net
+    depends_on:
+      mysql:
+        condition: service_healthy
     restart: "no"
 
-  # API de notas en PHP (Apache + mod_php). Se conecta al MySQL que ya
-  # levanta el otro proyecto, reutilizando su red y su base de datos.
+  # API de notas en PHP (Apache + mod_php). Se conecta como notes_app (solo DML)
+  # y arranca cuando las migraciones terminaron correctamente. APP_ENV=development
+  # sirve por HTTP plano (en production exige HTTPS detrás de un proxy).
   api:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: notes-php-api
     ports:
       - "8081:80"
-    depends_on:
-      migrations:
-        condition: service_completed_successfully
     environment:
-      APP_ENV: production
-      # notes-mysql es el nombre del contenedor de MySQL en su red.
-      DB_HOST: notes-mysql
+      APP_ENV: development
+      DB_HOST: mysql
       DB_PORT: "3306"
       DB_NAME: notes
-      # Usuario de aplicación: solo DML (SELECT/INSERT/UPDATE/DELETE).
       DB_USER: notes_app
       DB_PASSWORD: notes_app_password
       RATE_LIMIT_PERMIT: "100"
       RATE_LIMIT_WINDOW_SECONDS: "60"
       AUTH_KEY_CACHE_SECONDS: "60"
       MAX_BODY_BYTES: "1048576"
-    networks:
-      - notes-net
+    depends_on:
+      mysql:
+        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
     restart: unless-stopped
 
-networks:
-  # Red externa creada por el docker-compose del proyecto de MySQL. Así ambos
-  # servicios comparten la misma base de datos sin duplicar el contenedor.
-  notes-net:
-    external: true
-    name: crud-servicios-rest-aspnet-csharp_default
+volumes:
+  notes-mysql-data:

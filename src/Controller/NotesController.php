@@ -19,11 +19,13 @@ final class NotesController
     private const MAX_PAGE_SIZE = 100;
     private const MAX_SEARCH_LENGTH = 100;
 
-    public function __construct(private readonly NoteRepository $notes)
-    {
-    }
+    public function __construct(private readonly NoteRepository $notes) {}
 
-    /** GET /api/notes — lista paginada (keyset) con búsqueda opcional. */
+    /**
+     * GET /api/notes — lista paginada (keyset) con búsqueda opcional.
+     *
+     * @param array<string,string> $params parámetros de la ruta
+     */
     public function list(Request $request, array $params, string $ownerKeyId): Response
     {
         $errors = [];
@@ -45,7 +47,11 @@ final class NotesController
         return Response::json($page);
     }
 
-    /** GET /api/notes/{id} — obtiene una nota por id. */
+    /**
+     * GET /api/notes/{id} — obtiene una nota por id.
+     *
+     * @param array<string,string> $params parámetros de la ruta
+     */
     public function getById(Request $request, array $params, string $ownerKeyId): Response
     {
         $note = $this->notes->getById($ownerKeyId, (int) $params['id']);
@@ -53,7 +59,11 @@ final class NotesController
         return $note === null ? $this->notFound() : Response::json($note);
     }
 
-    /** POST /api/notes — crea una nota. */
+    /**
+     * POST /api/notes — crea una nota.
+     *
+     * @param array<string,string> $params parámetros de la ruta
+     */
     public function create(Request $request, array $params, string $ownerKeyId): Response
     {
         try {
@@ -67,7 +77,11 @@ final class NotesController
         return Response::json($note, 201, ['Location' => '/api/notes/' . $note->id]);
     }
 
-    /** PUT /api/notes/{id} — actualiza una nota existente. */
+    /**
+     * PUT /api/notes/{id} — actualiza una nota existente.
+     *
+     * @param array<string,string> $params parámetros de la ruta
+     */
     public function update(Request $request, array $params, string $ownerKeyId): Response
     {
         try {
@@ -81,7 +95,11 @@ final class NotesController
         return $updated ? Response::noContent() : $this->notFound();
     }
 
-    /** DELETE /api/notes/{id} — elimina una nota. */
+    /**
+     * DELETE /api/notes/{id} — elimina una nota.
+     *
+     * @param array<string,string> $params parámetros de la ruta
+     */
     public function delete(Request $request, array $params, string $ownerKeyId): Response
     {
         $deleted = $this->notes->delete($ownerKeyId, (int) $params['id']);

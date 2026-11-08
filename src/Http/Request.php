@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http;
 
-/** Representa la petición HTTP entrante (método, ruta, query, cabeceras y cuerpo). */
+/** Representa la petición HTTP entrante (método, ruta, query, cabeceras, cuerpo y esquema). */
 final class Request
 {
     /**
@@ -18,8 +18,9 @@ final class Request
         public readonly array $headers,
         public readonly string $rawBody,
         public readonly string $remoteAddr,
-    ) {
-    }
+        /** La conexión directa llegó por HTTPS (sin contar proxies). */
+        public readonly bool $https = false,
+    ) {}
 
     public static function fromGlobals(): self
     {
@@ -34,6 +35,7 @@ final class Request
             self::readHeaders(),
             file_get_contents('php://input') ?: '',
             (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown'),
+            strtolower((string) ($_SERVER['HTTPS'] ?? '')) === 'on',
         );
     }
 
@@ -50,13 +52,14 @@ final class Request
         array $headers = [],
         string $rawBody = '',
         string $remoteAddr = '127.0.0.1',
+        bool $https = false,
     ): self {
         $normalized = [];
         foreach ($headers as $name => $value) {
             $normalized[strtolower($name)] = $value;
         }
 
-        return new self(strtoupper($method), $path, $query, $normalized, $rawBody, $remoteAddr);
+        return new self(strtoupper($method), $path, $query, $normalized, $rawBody, $remoteAddr, $https);
     }
 
     public function header(string $name): ?string

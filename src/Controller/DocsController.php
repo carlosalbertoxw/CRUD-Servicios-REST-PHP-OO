@@ -13,11 +13,13 @@ use App\Http\Response;
  */
 final class DocsController
 {
-    public function __construct(private readonly string $basePath)
-    {
-    }
+    public function __construct(private readonly string $basePath) {}
 
-    /** GET /openapi.json — especificación OpenAPI 3.1. */
+    /**
+     * GET /openapi.json — especificación OpenAPI 3.1.
+     *
+     * @param array<string,string> $params parámetros de la ruta
+     */
     public function spec(Request $request, array $params, ?string $ownerKeyId): Response
     {
         $json = file_get_contents($this->basePath . '/resources/openapi.json');
@@ -29,7 +31,15 @@ final class DocsController
         );
     }
 
-    /** GET /docs — UI interactiva basada en Scalar (carga la spec de /openapi.json). */
+    /**
+     * GET /docs — UI interactiva basada en Scalar (carga la spec de /openapi.json).
+     *
+     * El script se sirve con versión fija e integridad (SRI): el navegador lo
+     * rechaza si el CDN entrega otro contenido. Al actualizar la versión hay que
+     * recalcular el hash (ver README).
+     *
+     * @param array<string,string> $params parámetros de la ruta
+     */
     public function ui(Request $request, array $params, ?string $ownerKeyId): Response
     {
         $html = <<<'HTML'
@@ -42,7 +52,10 @@ final class DocsController
               </head>
               <body>
                 <script id="api-reference" data-url="/openapi.json"></script>
-                <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+                <script
+                  src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.77.0/dist/browser/standalone.js"
+                  integrity="sha384-+7ESN8b9Ljg46TCYKedZUlhF/wfZbOt78aV/DtoU3anEElh8Q2eXsyhQ9W5lAZD4"
+                  crossorigin="anonymous"></script>
               </body>
             </html>
             HTML;

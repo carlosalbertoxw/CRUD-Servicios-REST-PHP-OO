@@ -9,18 +9,16 @@ use PDO;
 /** Repositorio de API keys sobre MySQL. */
 final class MySqlApiKeyRepository implements ApiKeyRepositoryInterface
 {
-    public function __construct(private readonly PDO $pdo)
-    {
-    }
+    public function __construct(private readonly PDO $pdo) {}
 
     public function getActiveKey(string $keyId): ?ApiKey
     {
         $stmt = $this->pdo->prepare(
-            'SELECT key_id, key_hash, client_name
+            'SELECT key_id, key_hash
              FROM api_keys
              WHERE key_id = :keyId
                AND revoked_at IS NULL
-               AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())'
+               AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())',
         );
         $stmt->execute(['keyId' => $keyId]);
         $row = $stmt->fetch();
@@ -32,7 +30,6 @@ final class MySqlApiKeyRepository implements ApiKeyRepositoryInterface
         return new ApiKey(
             (string) $row['key_id'],
             (string) $row['key_hash'],
-            (string) $row['client_name'],
         );
     }
 
@@ -44,7 +41,7 @@ final class MySqlApiKeyRepository implements ApiKeyRepositoryInterface
             'UPDATE api_keys
              SET last_used_at = UTC_TIMESTAMP()
              WHERE key_id = :keyId
-               AND (last_used_at IS NULL OR last_used_at < UTC_TIMESTAMP() - INTERVAL 1 HOUR)'
+               AND (last_used_at IS NULL OR last_used_at < UTC_TIMESTAMP() - INTERVAL 1 HOUR)',
         );
         $stmt->execute(['keyId' => $keyId]);
     }

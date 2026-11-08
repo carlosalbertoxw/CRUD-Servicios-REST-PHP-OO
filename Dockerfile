@@ -1,15 +1,21 @@
-# Imagen base con Apache + mod_php. Versión fijada para builds reproducibles.
+# --- Dependencias: Composer en su propia etapa (no llega a la imagen final) ---
+FROM composer:2 AS vendor
+WORKDIR /app
+COPY composer.json composer.lock ./
+# Instalación reproducible a partir del composer.lock versionado.
+RUN composer install --no-dev --no-interaction --prefer-dist --no-scripts --no-autoloader
+COPY src ./src
+RUN composer dump-autoload --optimize --no-dev --classmap-authoritative
+
+# --- Runtime: Apache + mod_php ---
 FROM php:8.5-apache
 
 # Extensiones: pdo_mysql para la BD; APCu para el cache de API keys y el
 # rate limiting en memoria compartida entre peticiones del mismo worker.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends unzip \
-    && docker-php-ext-install pdo_mysql \
+RUN docker-php-ext-install pdo_mysql \
     && pecl install apcu \
     && docker-php-ext-enable apcu \
-    && apt-get purge -y --auto-remove \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /tmp/pear
 
 # APCu también en modo CLI (para bin/create-api-key.php y diagnósticos).
 RUN echo "apc.enable_cli=1" >> "$PHP_INI_DIR/conf.d/docker-php-ext-apcu.ini"
@@ -23,20 +29,14 @@ RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-av
     && sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf \
     && a2enmod rewrite headers
 
-# Permitir .htaccess (AllowOverride All) en el webroot.
-RUN printf '<Directory ${APACHE_DOCUMENT_ROOT}>\n    AllowOverride All\n    Require all granted\n</Directory>\n' \
-    > /etc/apache2/conf-available/z-allow-override.conf \
-    && a2enconf z-allow-override
-
-# Instalar Composer y las dependencias PHP.
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+# Permitir .htaccess (AllowOverride All) en el webroot y rechazar en Apache
+# cuerpos mayores a 1 MB (antes de que lleguen a PHP).
+RUN printf '<Directory ${APACHE_DOCUMENT_ROOT}>\n    AllowOverride All\n    Require all granted\n</Directory>\nLimitRequestBody 1048576\n' \
+    > /etc/apache2/conf-available/z-app.conf \
+    && a2enconf z-app
 
 WORKDIR /var/www/html
-COPY composer.json composer.lock ./
-# Instalación reproducible a partir del composer.lock versionado.
-RUN composer install --no-dev --no-interaction --prefer-dist --no-scripts
-
+COPY --from=vendor /app/vendor ./vendor
 COPY . .
-RUN composer dump-autoload --optimize --no-dev
 
 EXPOSE 80

@@ -1,0 +1,32 @@
+name: CodeQL
+
+# CodeQL no analiza PHP; aquí revisa los workflows de GitHub Actions (inyección
+# de expresiones, permisos excesivos...). El código PHP lo cubre PHPStan en CI.
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  analizar:
+    name: Análisis de seguridad de los workflows (CodeQL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Inicializar CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: actions
+
+      - name: Analizar
+        uses: github/codeql-action/analyze@v4

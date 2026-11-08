@@ -38,7 +38,7 @@ $keyHash = hash('sha256', $secret, true);
 
 $dsn = sprintf(
     'mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4',
-    $config->get('DB_HOST', 'notes-mysql'),
+    $config->get('DB_HOST', 'mysql'),
     $config->getInt('DB_PORT', 3306),
     $config->get('DB_NAME', 'notes'),
 );
@@ -51,7 +51,7 @@ $pdo = new PDO(
 );
 
 $stmt = $pdo->prepare(
-    'INSERT INTO api_keys (key_id, key_hash, client_name) VALUES (:key_id, :key_hash, :client_name)'
+    'INSERT INTO api_keys (key_id, key_hash, client_name) VALUES (:key_id, :key_hash, :client_name)',
 );
 $stmt->execute([
     'key_id' => $keyId,

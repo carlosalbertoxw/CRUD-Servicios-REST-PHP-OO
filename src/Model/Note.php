@@ -15,8 +15,7 @@ final class Note implements JsonSerializable
         public readonly ?string $text,
         public readonly string $createdAt,
         public readonly string $updatedAt,
-    ) {
-    }
+    ) {}
 
     /** @param array<string,mixed> $row fila de la BD */
     public static function fromRow(array $row): self

@@ -9,8 +9,7 @@ final class RateLimitResult
     private function __construct(
         public readonly bool $allowed,
         public readonly int $retryAfterSeconds,
-    ) {
-    }
+    ) {}
 
     public static function allowed(): self
     {

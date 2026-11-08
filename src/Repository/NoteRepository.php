@@ -18,9 +18,7 @@ use PDO;
  */
 final class NoteRepository
 {
-    public function __construct(private readonly PDO $pdo)
-    {
-    }
+    public function __construct(private readonly PDO $pdo) {}
 
     /**
      * Página de notas del cliente (id, título y fechas; el contenido se obtiene
@@ -40,23 +38,21 @@ final class NoteRepository
             $params['search'] = $search;
         }
 
-        $countStmt = $this->pdo->prepare("SELECT COUNT(*) FROM notes WHERE {$filter}");
-        $countStmt->execute($params);
-        $totalCount = (int) $countStmt->fetchColumn();
-
-        // afterId y limit son enteros ya validados: se interpolan de forma segura
-        // (MySQL no admite placeholders en LIMIT con prepares nativos de forma
-        // portable). Los valores del cliente siguen yendo como parámetros.
-        $afterId = max(0, $afterId);
-        $limit = $pageSize + 1;
-        $sql = "SELECT id, title, created_at, updated_at
-                FROM notes
-                WHERE {$filter} AND id > :afterId
-                ORDER BY id
-                LIMIT {$limit}";
-
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params + ['afterId' => $afterId]);
+        // Con prepares nativos (ATTR_EMULATE_PREPARES=false) LIMIT admite
+        // placeholders, siempre que se enlacen como enteros.
+        $stmt = $this->pdo->prepare(
+            "SELECT id, title, created_at, updated_at
+             FROM notes
+             WHERE {$filter} AND id > :afterId
+             ORDER BY id
+             LIMIT :limit",
+        );
+        foreach ($params as $name => $value) {
+            $stmt->bindValue($name, $value);
+        }
+        $stmt->bindValue('afterId', max(0, $afterId), PDO::PARAM_INT);
+        $stmt->bindValue('limit', $pageSize + 1, PDO::PARAM_INT);
+        $stmt->execute();
         $rows = $stmt->fetchAll();
 
         $hasMore = count($rows) > $pageSize;
@@ -64,10 +60,10 @@ final class NoteRepository
             array_pop($rows);
         }
 
-        $items = array_map(static fn (array $row) => NoteSummary::fromRow($row), $rows);
+        $items = array_map(static fn(array $row) => NoteSummary::fromRow($row), $rows);
         $nextAfterId = $hasMore && $items !== [] ? end($items)->id : null;
 
-        return new PagedResult($items, $pageSize, $totalCount, $nextAfterId);
+        return new PagedResult($items, $pageSize, $nextAfterId);
     }
 
     public function getById(string $ownerKeyId, int $id): ?Note
@@ -75,7 +71,7 @@ final class NoteRepository
         $stmt = $this->pdo->prepare(
             'SELECT id, title, text, created_at, updated_at
              FROM notes
-             WHERE id = :id AND owner_key_id = :ownerKeyId'
+             WHERE id = :id AND owner_key_id = :ownerKeyId',
         );
         $stmt->execute(['id' => $id, 'ownerKeyId' => $ownerKeyId]);
         $row = $stmt->fetch();
@@ -85,20 +81,26 @@ final class NoteRepository
 
     public function create(string $ownerKeyId, string $title, ?string $text): Note
     {
+        // Inserta y relee la fila (mismo cliente, misma conexión) para devolver
+        // los timestamps generados por la BD.
         $stmt = $this->pdo->prepare(
-            'INSERT INTO notes (owner_key_id, title, text) VALUES (:ownerKeyId, :title, :text)'
+            'INSERT INTO notes (owner_key_id, title, text) VALUES (:ownerKeyId, :title, :text)',
         );
         $stmt->execute(['ownerKeyId' => $ownerKeyId, 'title' => $title, 'text' => $text]);
 
-        // Releer la fila para devolver los timestamps generados por la BD.
-        return $this->getById($ownerKeyId, (int) $this->pdo->lastInsertId());
+        $note = $this->getById($ownerKeyId, (int) $this->pdo->lastInsertId());
+        if ($note === null) {
+            throw new \RuntimeException('No se pudo releer la nota recién creada.');
+        }
+
+        return $note;
     }
 
     public function update(string $ownerKeyId, int $id, string $title, ?string $text): bool
     {
         $stmt = $this->pdo->prepare(
             'UPDATE notes SET title = :title, text = :text
-             WHERE id = :id AND owner_key_id = :ownerKeyId'
+             WHERE id = :id AND owner_key_id = :ownerKeyId',
         );
         $stmt->execute([
             'title' => $title,
@@ -113,7 +115,7 @@ final class NoteRepository
     public function delete(string $ownerKeyId, int $id): bool
     {
         $stmt = $this->pdo->prepare(
-            'DELETE FROM notes WHERE id = :id AND owner_key_id = :ownerKeyId'
+            'DELETE FROM notes WHERE id = :id AND owner_key_id = :ownerKeyId',
         );
         $stmt->execute(['id' => $id, 'ownerKeyId' => $ownerKeyId]);
 

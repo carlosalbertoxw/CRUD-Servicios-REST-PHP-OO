@@ -10,7 +10,7 @@ final class MultiTenantTest extends IntegrationTestCase
     {
         // Cliente B empieza sin notas (las de ejemplo son de A).
         $listB = $this->decode($this->send('GET', '/api/notes', ['X-Api-Key' => TestDatabase::KEY_B]));
-        self::assertSame(0, $listB['totalCount']);
+        self::assertSame([], $listB['items']);
 
         // B crea la suya.
         $created = $this->decode($this->send(

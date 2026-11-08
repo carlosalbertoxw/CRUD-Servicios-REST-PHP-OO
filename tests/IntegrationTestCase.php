@@ -26,8 +26,9 @@ abstract class IntegrationTestCase extends TestCase
     /**
      * Envía una petición a la aplicación y devuelve la respuesta.
      *
-     * @param array<string,string> $headers
-     * @param array<string,string> $query
+     * @param array<string,string>     $headers
+     * @param array<string,mixed>|null $json
+     * @param array<string,string>     $query
      */
     protected function send(
         string $method,
@@ -41,7 +42,12 @@ abstract class IntegrationTestCase extends TestCase
         return $this->app->handle(Request::create($method, $path, $query, $headers, $body));
     }
 
-    /** Igual que send() pero autenticado como Cliente A. */
+    /**
+     * Igual que send() pero autenticado como Cliente A.
+     *
+     * @param array<string,mixed>|null $json
+     * @param array<string,string>     $query
+     */
     protected function sendAsA(
         string $method,
         string $path,

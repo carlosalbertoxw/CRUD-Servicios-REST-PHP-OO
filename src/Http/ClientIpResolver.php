@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Http;
 
 /**
- * Resuelve la IP real del cliente cuando la API corre detrás de un reverse
- * proxy o balanceador que termina TLS.
+ * Resuelve la IP real del cliente y el esquema (HTTP/HTTPS) cuando la API corre
+ * detrás de un reverse proxy o balanceador que termina TLS.
  *
- * Solo se confía en la cabecera X-Forwarded-For si la conexión entrante viene
- * de un proxy declarado como de confianza (IP o CIDR). En caso contrario se usa
- * la IP de la conexión directa. Así se evita que un cliente falsee su IP para
- * saltarse el rate limiting.
+ * Solo se confía en las cabeceras X-Forwarded-For / X-Forwarded-Proto si la
+ * conexión entrante viene de un proxy declarado como de confianza (IP o CIDR).
+ * En caso contrario se usan los datos de la conexión directa. Así se evita que
+ * un cliente falsee su IP para saltarse el rate limiting.
  */
 final class ClientIpResolver
 {
@@ -24,7 +24,7 @@ final class ClientIpResolver
         $this->trustedProxies = array_filter(array_map('trim', $trustedProxies));
     }
 
-    /** @param string[] $trustedProxies */
+    /** @param ?string $csv IPs o CIDRs separados por coma */
     public static function fromConfigValue(?string $csv): self
     {
         return new self($csv === null || $csv === '' ? [] : explode(',', $csv));
@@ -47,6 +47,19 @@ final class ClientIpResolver
         $first = trim(explode(',', $forwardedFor)[0]);
 
         return $first !== '' ? $first : $remote;
+    }
+
+    /** ¿La petición original del cliente llegó por HTTPS? */
+    public function isHttps(Request $request): bool
+    {
+        if ($request->https) {
+            return true;
+        }
+        if (!$this->isTrusted($request->remoteAddr)) {
+            return false;
+        }
+
+        return strtolower(trim((string) $request->header('X-Forwarded-Proto'))) === 'https';
     }
 
     private function isTrusted(string $ip): bool

@@ -32,6 +32,30 @@ final class HealthAndDocsTest extends IntegrationTestCase
         self::assertArrayHasKey('/api/notes', $spec['paths']);
     }
 
+    public function testCadaRutaEstaDocumentadaEnLaSpec(): void
+    {
+        $spec = json_decode($this->send('GET', '/openapi.json')->body, true);
+
+        foreach ($this->app->routes() as $route) {
+            if (in_array($route->pattern, ['/openapi.json', '/docs'], true)) {
+                continue;
+            }
+            // {id:\d+} en el router equivale a {id} en OpenAPI.
+            $path = (string) preg_replace('#\{(\w+):[^}]+\}#', '{$1}', $route->pattern);
+            self::assertArrayHasKey($path, $spec['paths'], "Falta {$path} en openapi.json");
+            self::assertArrayHasKey(
+                strtolower($route->method),
+                $spec['paths'][$path],
+                "Falta {$route->method} {$path} en openapi.json",
+            );
+        }
+    }
+
+    public function testTodaRespuestaIncluyeNoSniff(): void
+    {
+        self::assertSame('nosniff', $this->send('GET', '/health/live')->headers['X-Content-Type-Options']);
+    }
+
     public function testDocsEsAnonimoYSirveHtml(): void
     {
         $response = $this->send('GET', '/docs');
